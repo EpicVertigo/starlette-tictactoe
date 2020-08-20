@@ -1,5 +1,8 @@
+from datetime import datetime
 from enum import Enum
 from functools import partial
+
+from star.websockets import EnhancedWebscoket
 
 
 class ResponseEvent(Enum):
@@ -13,16 +16,20 @@ class ResponseEvent(Enum):
     LEAVE_ROOM = 'leave_room'
     CHAT_MESSAGE = 'chat_message'
     GET_ROOM_CLIENTS_COUNT = 'get_cleints_count'
-
     GAME_FINISHED = 'game_finished'
 
+    GAME_UPDATE = 'game_update'
 
-def build_response(event_type: str, data: dict = None, message: str = None) -> dict:
+
+def build_response(event_type: str, data: dict = None, message: str = None,
+                   websocket: EnhancedWebscoket = None) -> dict:
     event_value = event_type.value if isinstance(event_type, ResponseEvent) else event_type
     if not data:
-        data = {}
+        data = {'sender': 'Server', 'timestamp': datetime.now().strftime('%H:%M:%S')}
     if message:
         data.update({'message': message})
+    if websocket:
+        data.update({'sender': websocket.display_name or websocket.uid})
     return {
         'event_type': event_value,
         'data': data

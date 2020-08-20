@@ -27,7 +27,8 @@ class EnhancedWebscoket(WebSocket):
     @property
     def display_name(self):
         if not self._display_name:
-            self._display_name = self.session.get('display_name', None)
+            username = self.session.get('display_name', None)
+            self._display_name = username or f'AnonymousUser_{self.uid[-6:]}'
         return self._display_name
 
     def __hash__(self):

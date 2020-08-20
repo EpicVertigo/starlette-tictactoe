@@ -18,9 +18,10 @@ class BaseGameWebSocketEndpoint(WebSocketEndpoint):
                 return client
         return None
 
-    async def on_chat_message(self, _, data):
+    async def on_chat_message(self, websocket, data):
         await self.broadcast(build_chat_message(
-            message=data.get('message')
+            message=data.get('message'),
+            websocket=websocket
         ))
 
     async def dispatch(self) -> None:
@@ -62,8 +63,8 @@ class BaseGameWebSocketEndpoint(WebSocketEndpoint):
         for client in self.clients:
             await client.send_json(data)
 
-    async def broadcast_chat_message(self, message):
-        await self.broadcast(build_chat_message(message=message))
+    async def broadcast_chat_message(self, message, websocket=None):
+        await self.broadcast(build_chat_message(message=message, websocket=websocket))
 
     async def on_connect(self, websocket: EnhancedWebscoket):
         await websocket.accept()
@@ -111,7 +112,7 @@ class MainServer(BaseGameWebSocketEndpoint):
     async def on_connect(self, websocket):
         await super().on_connect(websocket)
         await websocket.send_json(self.room_manager.all_rooms)
-        await self.broadcast_chat_message(f'{websocket.uid} connected')
+        await self.broadcast_chat_message(f'{websocket.display_name} connected')
 
 
 class GameRoomEndpoint(BaseGameWebSocketEndpoint):
@@ -177,18 +178,17 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
         room = room_manager.get_room(room_name)
 
         if not room or (websocket not in room and room.is_full):
-            response = build_response(
+            await websocket.send_json(build_response(
                 event_type=ResponseEvent.CONNECTION_CLOSE,
                 message='Room does not exist or this room is full'
-            )
-            await websocket.send_json(response)
+            ))
             await websocket.close()
             return
 
         self.room = room
         response = build_response(
             event_type=ResponseEvent.JOIN_ROOM,
-            message=f'Client {websocket.uid} connected to {self.room.name}'
+            message=f'Client {websocket.display_name} connected to {self.room.name}'
         )
         if websocket not in self.room.clients:
             self.room.clients.add(websocket)
@@ -215,4 +215,4 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
                 self.room.remove_client(websocket)
             # If some people left in the room - announce it
             if self.room.clients:
-                await self.broadcast_chat_message(f'{websocket.uid} disconnected')
+                await self.broadcast_chat_message(f'{websocket.display_name} disconnected')

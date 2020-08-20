@@ -13,24 +13,76 @@
     <section class="section">
       <div class="container">
         <div id="app">
-          <h1>WebSocket Chat Debug Page (very secret)</h1>
-          <h2 v-if="roomName">Send message to "{{ roomName }}"</h2>
-          <h2 v-else>Send global message</h2>
+          <section class="hero">
+            <div class="hero-body">
+              <div class="container">
+                <h1 class="title">
+                  WebSocket Chat Debug Page (very secret)
+                </h1>
+                <h2 v-if="roomName" class="subtitle">
+                  Room: {{ roomName }}
+                </h2>
+              </div>
+            </div>
+          </section>
 
-          <form @submit.prevent="sendMessage">
-            <input type="text" name="name" autocomplete="off" />
-            <button>Send</button>
-          </form>
+          <div class="columns">
+            <div class="column">
+              <nav class="panel">
+                <p class="panel-heading">
+                  Chat
+                </p>
+                <textarea
+                  class="chat-box textarea"
+                  v-model="displayChat()"
+                  rows="15"
+                  disabled="true"
+                ></textarea>
+                <form @submit.prevent="sendMessage">
+                  <div class="field has-addons">
+                    <input
+                      class="input"
+                      type="text"
+                      name="name"
+                      placeholder=""
+                    />
+                    <button class="button is-info">Send message</button>
+                  </div>
+                </form>
+              </nav>
+            </div>
 
-          <form v-if="!roomName" @submit.prevent="createRoom">
-            <input type="text" name="name" autocomplete="off" />
-            <button>Create room</button>
-          </form>
+            <div class="column">
+              <nav class="panel">
+                <p class="panel-heading">
+                  Active Game Rooms
+                </p>
+                <div
+                  class="columns panel-block"
+                  v-for="item in active_rooms"
+                  :key="item.index"
+                >
+                  <a class="column">
+                    {{item.name}}
+                  </a>
+                  <span class="column has-text-right"
+                    >{{item.current_clients}} / {{item.limit }}</span
+                  >
+                </div>
+              </nav>
 
-          <form v-if="!roomName" @submit.prevent="joinRoom">
-            <input type="text" name="name" autocomplete="off" />
-            <button>Join room</button>
-          </form>
+              <h3>Game rooms</h3>
+              <form v-if="!roomName" @submit.prevent="createRoom">
+                <input type="text" name="name" autocomplete="off" />
+                <button>Create room</button>
+              </form>
+
+              <form v-if="!roomName" @submit.prevent="joinRoom">
+                <input type="text" name="name" autocomplete="off" />
+                <button>Join room</button>
+              </form>
+            </div>
+          </div>
 
           <div class="mt-5" v-if="roomName && gameBoard">
             <h3>Current board</h3>
@@ -48,6 +100,23 @@
           </div>
 
           <br />
+          <h3>Chat</h3>
+          <table class="table">
+            <thead>
+              <tr>
+                <th><abbr title="Event type">Sender</abbr></th>
+                <th><abbr title="Message">Message</abbr></th>
+              </tr>
+            </thead>
+            <tbody v-for="item in chat_messages" :key="item.index">
+              <tr>
+                <td>{{ item.sender}}</td>
+                <td>
+                  {{ item.message }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
           <h3>Debug Messages</h3>
           <table class="table">
             <thead>
@@ -79,8 +148,7 @@
         });
       }
       function formatBoard(board) {
-        const formattedBoard = [...board];
-        formattedBoard.forEach((item, x) => {
+        board.forEach((item, x) => {
           item.forEach((element, y) => {
             if (element === 0) {
               board[x][y] = "-";
@@ -91,39 +159,56 @@
             }
           });
         });
-        return formattedBoard;
+        return board;
       }
-      var app = new Vue({
+      const app = new Vue({
         el: "#app",
         data: {
           connection: null,
           messages: [],
           roomName: "",
           gameBoard: null,
+          chat_messages: [],
+          active_rooms: [],
         },
         created: function () {
           console.log("Startuem WS");
           this.connection = new WebSocket("ws://localhost:8000/ws");
-          this.connection.onmessage = (event) => {
-            const payload = JSON.parse(event.data);
-            this.messages.push(payload);
-            console.log(payload.event_type);
-            if (payload.event_type === "game_update") {
-              this.gameBoard = payload.data.board;
-            }
-          };
+          this.connection.onmessage = this.messageHandler;
           this.connection.onopen = function (event) {
             console.log("Successfully connected to Websocket");
           };
         },
         methods: {
+          messageHandler: function (event) {
+            const payload = JSON.parse(event.data);
+            console.log(payload.event_type);
+            switch (payload.event_type) {
+              case "game_update":
+                console.debug(payload.data.board);
+                this.gameBoard = formatBoard(payload.data.board);
+                break;
+              case "get_all_rooms":
+                this.active_rooms = [
+                  ...this.active_rooms,
+                  ...payload.data.rooms,
+                ];
+              case "chat_message":
+                this.chat_messages.push(payload.data);
+              default:
+                break;
+            }
+          },
           sendMessage: function (event) {
-            event.preventDefault();
-            message = createMessage("chat_message", {
-              message: event.target.elements.name.value,
-            });
-            this.connection.send(message);
+            let _input = event.target.elements.name.value;
+            if (_input) {
+              message = createMessage("chat_message", {
+                message: event.target.elements.name.value,
+              });
+              this.connection.send(message);
+            }
             event.target.elements.name.value = "";
+            event.preventDefault();
           },
           createRoom: function (event) {
             event.preventDefault();
@@ -139,16 +224,7 @@
             this.connection = new WebSocket(
               `ws://localhost:8000/ws/${event.target.elements.name.value}`
             );
-            this.connection.onmessage = (event) => {
-              const payload = JSON.parse(event.data);
-              this.messages.push(payload);
-              console.log(payload.event_type);
-              if (payload.event_type === "game_update") {
-                var new_board = [...payload.data.board];
-                console.log(payload.data.board, new_board);
-                this.gameBoard = formatBoard(new_board);
-              }
-            };
+            this.connection.onmessage = this.messageHandler;
             this.roomName = event.target.elements.name.value;
             event.target.elements.name.value = "";
           },
@@ -157,6 +233,21 @@
             message = createMessage("make_move", { x, y });
             this.connection.send(message);
           },
+          displayChat: function () {
+            return this.chat_messages
+              .map((el) => `[${el.timestamp}] ${el.sender}: ${el.message}`)
+              .join("\n");
+          },
+          scrollToElement() {
+            const el = this.$el.getElementsByClassName("scroll-to-me")[0];
+            if (el) {
+              el.scrollIntoView();
+            }
+          },
+        },
+        updated: function () {
+          var chatBox = this.$el.getElementsByClassName("chat-box")[0];
+          chatBox.scrollTop = chatBox.scrollHeight;
         },
       });
     </script>

@@ -3,3 +3,4 @@ uvicorn
 itsdangerous
 numpy
 aiofiles
+jinja2

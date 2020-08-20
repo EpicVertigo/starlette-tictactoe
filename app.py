@@ -1,3 +1,4 @@
+import os
 from uuid import uuid4
 
 import uvicorn
@@ -8,15 +9,14 @@ from starlette.routing import Route, WebSocketRoute
 from starlette.templating import Jinja2Templates
 
 from star.endpoints import GameRoomEndpoint, MainServer
-from star.utils import get_ngrok_http_tunnel
 
 templates = Jinja2Templates(directory='templates')
+HOST = os.getenv('HOST')
 
 
 class Homepage(HTTPEndpoint):
     async def get(self, request):
-        host = await get_ngrok_http_tunnel()
-        response = templates.TemplateResponse('index.html', {'request': request, 'host': host})
+        response = templates.TemplateResponse('index.html', {'request': request, 'host': HOST})
         if not 'uid' in request.session:
             uid = str(uuid4())
             request.session.update({'uid': uid})

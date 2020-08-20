@@ -92,7 +92,7 @@ class WebsocketRoomManager:
         return item in self.rooms
 
     @property
-    def all_rooms(self):
+    def all_rooms(self) -> dict:
         return build_response(
             event_type=ResponseEvent.GET_ALL_ROOMS,
             data={'rooms': [{

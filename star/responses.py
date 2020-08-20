@@ -10,7 +10,7 @@ class ResponseEvent(Enum):
     CONNECTION_OPEN = 'connection_open'
     CONNECTION_CLOSE = 'connection_close'
     GET_ALL_ROOMS = 'get_all_rooms'
-    CREATE_ROOM = 'create_room'
+    CREATE_ROOM_SUCCESS = 'create_room'
     CREATE_ROOM_FAILED = 'create_room_failed'
     JOIN_ROOM = 'join_room'
     LEAVE_ROOM = 'leave_room'
@@ -24,9 +24,11 @@ class ResponseEvent(Enum):
 
 def build_response(event_type: str, data: dict = None, message: str = None,
                    websocket: EnhancedWebscoket = None) -> dict:
-    event_value = event_type.value if isinstance(event_type, ResponseEvent) else event_type
+    event_value = event_type.value if isinstance(
+        event_type, ResponseEvent) else event_type
     if not data:
-        data = {'sender': 'Server', 'timestamp': datetime.now().strftime('%H:%M:%S')}
+        data = {'sender': 'Server',
+                'timestamp': datetime.now().strftime('%H:%M:%S')}
     if message:
         data.update({'message': message})
     if websocket:
@@ -37,7 +39,8 @@ def build_response(event_type: str, data: dict = None, message: str = None,
     }
 
 
-build_chat_message = partial(build_response, event_type=ResponseEvent.CHAT_MESSAGE)
+build_chat_message = partial(
+    build_response, event_type=ResponseEvent.CHAT_MESSAGE)
 build_game_log = partial(build_response, event_type=ResponseEvent.GAME_LOG)
 
 RESPONSE_CONNECTED = build_response(

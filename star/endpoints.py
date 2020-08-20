@@ -8,26 +8,35 @@ from star.websockets import EnhancedWebscoket
 
 
 class BaseGameWebSocketEndpoint(WebSocketEndpoint):
-    clients = set()
+    """
+    Default Starlette WebSocketEndpoint with additional methods. 
+    By default uses EnchancedWebsocket class for dispatching all incoming
+    and outcoming requests. Adds client management functionality on connect,
+    recieve and disconnect events. 
+
+    This class uses dispatch_methods class
+    attribute to hold reference to event types and related resolver functions
+    through `dispatch_request` method. Resolver function must be async and
+    accept websocket and data as first arguments 
+    """
     encoding = 'json'
+    clients = set()
     dispatch_methods = {}
 
-    def _get_old_connection(self, websocket):
+    def _get_old_connection(self, websocket: EnhancedWebscoket) -> EnhancedWebscoket:
         for client in self.clients:
             if client == websocket:
                 return client
         return None
 
-    async def on_chat_message(self, websocket, data):
-        await self.broadcast(build_chat_message(
-            message=data.get('message'),
-            websocket=websocket
-        ))
+    async def on_chat_message(self, websocket: EnhancedWebscoket, data: dict) -> None:
+        await self.broadcast_chat_message(data.get('message'), websocket)
 
     async def dispatch(self) -> None:
         """
-            Overrided `dispatch` method which uses EnhancedWebsocket class instead
-            """
+        Overriden `dispatch` method which uses EnhancedWebsocket class instead
+        of default WebSocket. Any other functionality stayed intact
+        """
         websocket = EnhancedWebscoket(
             self.scope, receive=self.receive, send=self.send)
         await self.on_connect(websocket)
@@ -50,23 +59,62 @@ class BaseGameWebSocketEndpoint(WebSocketEndpoint):
         finally:
             await self.on_disconnect(websocket, close_code)
 
-    async def dispatch_request(self, websocket, request_data):
-        event_type, _ = request_data.get('event_type'), request_data.get('room')
+    async def dispatch_request(self, websocket: EnhancedWebscoket, data: dict):
+        """Dispatcher for incoming messages through websocket.
+
+        Args:
+            websocket (EnhancedWebscoket): Websocket that sent current data
+            data (dict): JSON data from websocket. By default this method
+            expects data in format:
+            ```
+                {
+                    "event_type": ResponseEvent,
+                    "data": {} dictionary with unstructured data
+                }
+            ```
+        """
+        event_type = data.get('event_type', None)
+        # Issue a disconnect on empty event
+        # TODO: Add strict check for existing events only
+        if not event_type:
+            await websocket.send_json(RESPONSE_CLOSE)
+            await websocket.close()
         method = self.dispatch_methods.get(event_type, None)
         if method:
-            await method(websocket, request_data.get('data', {}))
+            await method(websocket=websocket, data=data.get('data', {}))
 
-    async def on_receive(self, websocket, data):
+    async def on_receive(self, websocket: EnhancedWebscoket, data: dict) -> None:
+        """Redirects any incoming data to internal request dispatcher
+
+        Args:
+            websocket (EnhancedWebscoket): Websocket that sent current data
+            data (dict): Raw dictionary with data from websocket
+        """
         await self.dispatch_request(websocket, data)
 
-    async def broadcast(self, data):
+    async def broadcast(self, data: dict) -> None:
+        """Helper function to broadcast raw data dictionary to all connected
+        clients
+
+        Args:
+            data (dict): Raw dictionary with data
+        """
         for client in self.clients:
             await client.send_json(data)
 
-    async def broadcast_chat_message(self, message, websocket=None):
+    async def broadcast_chat_message(self, message: str, websocket: EnhancedWebscoket = None):
+        """Shortcut function to broadcast message of type
+        ResponseEvent.CHAT_MESSAGE. If websocket keyword argument is empty,
+        chat message sender will be set to `Server`
+
+        Args:
+            message (str): Text message
+            websocket (EnhancedWebscoket, optional): Sender of message. If None
+            then sender will be set to `Server`
+        """
         await self.broadcast(build_chat_message(message=message, websocket=websocket))
 
-    async def on_connect(self, websocket: EnhancedWebscoket):
+    async def on_connect(self, websocket: EnhancedWebscoket) -> None:
         await websocket.accept()
         if not websocket.uid:
             await websocket.send_json(RESPONSE_CLOSE)
@@ -80,22 +128,27 @@ class BaseGameWebSocketEndpoint(WebSocketEndpoint):
             await old_connection.close()
             self.clients.add(websocket)
 
-    async def on_disconnect(self, websocket, close_code):
+    async def on_disconnect(self, websocket: EnhancedWebscoket, close_code: int):
         if websocket in self.clients:
             self.clients.remove(websocket)
 
 
 class MainServer(BaseGameWebSocketEndpoint):
+    """
+    Endpoint that represents entrypoint for all connected users. Holds reference
+    to RoomManager instance and manages incoming chat messages and new room
+    creation requests
+    """
     room_manager = room_manager
 
     @property
-    def dispatch_methods(self):
+    def dispatch_methods(self) -> dict:
         return {
             'chat_message': self.on_chat_message,
             'create_room': self.create_room,
         }
 
-    async def create_room(self, websocket, data: dict):
+    async def create_room(self, websocket: EnhancedWebscoket, data: dict) -> None:
         new_room = WebsocketRoom(data.get('name', None))
         if new_room in self.room_manager:
             await websocket.send_json(build_response(
@@ -105,22 +158,31 @@ class MainServer(BaseGameWebSocketEndpoint):
         else:
             self.room_manager.create_room(new_room)
             await websocket.send_json(build_response(
-                event_type=ResponseEvent.CREATE_ROOM,
+                event_type=ResponseEvent.CREATE_ROOM_SUCCESS,
                 message=f'Room {new_room.name} created'
             ))
             await websocket.send_json(self.room_manager.all_rooms)
 
-    async def on_connect(self, websocket):
+    async def on_connect(self, websocket: EnhancedWebscoket) -> None:
         await super().on_connect(websocket)
         await websocket.send_json(self.room_manager.all_rooms)
         await self.broadcast_chat_message(f'{websocket.display_name} connected')
 
 
 class GameRoomEndpoint(BaseGameWebSocketEndpoint):
+    """
+    Websocket endpoint that represents game room. Holds reference to
+    WebsocketRoom object. Instead of holding references to current clients, all
+    clients are located inside `self.room` object. Websocket will initialize
+    on first connection and will try to search if current url path (room name)
+    is registered in RoomManager instance.
+    This endpoint dispatches chat messages, current room status and room.game
+    status and data
+    """
     room: WebsocketRoom = None
 
     @property
-    def dispatch_methods(self):
+    def dispatch_methods(self) -> dict:
         return {
             'get_clients_count': self.get_room_clients_count,
             'send_game_status': self.send_game_status,
@@ -128,7 +190,17 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
             'make_move': self.make_move
         }
 
-    async def make_move(self, websocket, data):
+    async def make_move(self, websocket: EnhancedWebscoket, data: dict) -> None:
+        """Dispatcher method to process incoming game move data. Will return
+        if current game is not available (either didn't start or finished).
+        Will broadcast additional game log data upon successfull move and send
+        updated game status to both players.
+
+        Args:
+            websocket (EnhancedWebscoket): Current player
+            data (dict): Data with game move. Keys with coordinates (x and y)
+            are expected.
+        """
         if not self.room.game:
             await websocket.send_json(build_chat_message(
                 message='Game did not start yet'
@@ -153,17 +225,19 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
             await websocket.send_json(build_game_log(message=str(exc)))
             return
 
-    async def broadcast(self, data):
+    async def broadcast(self, data: dict) -> None:
+        """Room specific broadcast function"""
         for client in self.room.clients:
             await client.send_json(data)
 
-    async def get_room_clients_count(self, websocket, _):
+    async def get_room_clients_count(self, websocket: EnhancedWebscoket, **kwargs) -> None:
         await websocket.send_json(build_response(
             event_type=ResponseEvent.GET_ROOM_CLIENTS_COUNT,
             data={'count': str(self.room.client_count)}
         ))
 
-    async def send_game_status(self):
+    async def send_game_status(self) -> None:
+        """Helper method to send updated game data"""
         await self.broadcast(build_response(
             event_type='game_update',
             data={
@@ -172,7 +246,7 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
             }
         ))
 
-    async def on_connect(self, websocket):
+    async def on_connect(self, websocket: EnhancedWebscoket) -> None:
         await websocket.accept()
         room_name = websocket.path_params['room']
         room = room_manager.get_room(room_name)
@@ -197,7 +271,7 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
             await old_connection.close()
             self.room.clients.add(websocket)
         await self.broadcast(response)
-        await self.get_room_clients_count(websocket, None)
+        await self.get_room_clients_count(websocket)
 
         # Start game here?
         if self.room.is_full and not self.room.game:
@@ -205,7 +279,7 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
             await self.broadcast_chat_message('Game is starting')
             await self.send_game_status()
 
-    async def on_disconnect(self, websocket, close_code):
+    async def on_disconnect(self, websocket: EnhancedWebscoket, close_code: int):
         if self.room:
             # Cancel current game
             if self.room.game:

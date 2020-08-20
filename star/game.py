@@ -1,3 +1,5 @@
+from typing import Callable, List
+
 import numpy as np
 
 
@@ -7,7 +9,7 @@ class IncorrectMoveException(Exception):
 
 class Game:
     board: list = None
-    players: list = None
+    players: dict = None
     is_over = False
     winner = None
     current_player = 1
@@ -15,20 +17,20 @@ class Game:
     def __init__(self, players):
         if len(players) != 2:
             raise Exception('This game requires 2 players')
-        self.board = self._generate_grid()
+        self.board = self._get_new_grid()
         self.players = dict(enumerate(players, 1))
 
-    def _generate_grid(self):
+    def _get_new_grid(self) -> np.array:
         return np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
 
     def is_sequence_filled(self, sequence: list, player: int) -> bool:
         return len(set(sequence)) == 1 and player in set(sequence)
 
     @property
-    def conditions(self):
+    def conditions(self) -> List[Callable]:
         return [self.row_win, self.col_win, self.diag_win]
 
-    def row_win(self, player):
+    def row_win(self, player: int) -> bool:
         for i in range(len(self.board)):
             row = []
             for j in range(len(self.board)):
@@ -38,7 +40,7 @@ class Game:
             continue
         return False
 
-    def col_win(self, player):
+    def col_win(self, player: int) -> bool:
         for i in range(len(self.board)):
             col = []
             for j in range(len(self.board)):
@@ -48,7 +50,7 @@ class Game:
             continue
         return False
 
-    def diag_win(self, player):
+    def diag_win(self, player: int) -> bool:
         diag = []
         for i in range(len(self.board)):
             diag.append(self.board[i, i])
@@ -81,7 +83,7 @@ class Game:
         except IndexError:
             raise IncorrectMoveException('Incorrect coordinates')
 
-    def evaluate(self):
+    def evaluate(self) -> str:
         for player in self.players:
             if any(map(lambda f: f(player), self.conditions)):
                 self.winner = self.players[player].display_name

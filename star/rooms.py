@@ -6,7 +6,6 @@ from star.websockets import EnhancedWebscoket
 class WebsocketRoom:
     clients = None
     name = None
-    locked = False
     limit = 2
     game: Game = None
 
@@ -94,14 +93,14 @@ class WebsocketRoomManager:
 
     @property
     def all_rooms(self):
-        print([x.clients for x in self.rooms.values()])
         return build_response(
             event_type=ResponseEvent.GET_ALL_ROOMS,
             data={'rooms': [{
                 'name': x.name,
                 'current_clients': x.client_count,
-                'limit': x.limit} for x in self.rooms.values()
-            ]}
+                'limit': x.limit,
+                'is_full': x.is_full
+            } for x in self.rooms.values()]}
         )
 
 

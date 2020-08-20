@@ -70,7 +70,7 @@ class Game:
             return
         try:
             if player != self.players[self.current_player]:
-                raise IncorrectMoveException('Not your turn')
+                raise IncorrectMoveException("It's not your turn")
             current_value = self.board[x, y]
             if current_value == 0:
                 self.board[x, y] = self.current_player
@@ -84,7 +84,7 @@ class Game:
     def evaluate(self):
         for player in self.players:
             if any(map(lambda f: f(player), self.conditions)):
-                self.winner = player
+                self.winner = self.players[player].display_name
                 self.is_over = True
         if np.all(self.board != 0) and not self.winner:
             self.winner = 'Noone'

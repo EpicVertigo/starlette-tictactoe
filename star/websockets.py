@@ -1,6 +1,9 @@
+import logging
 from uuid import uuid4
 
 from starlette.websockets import WebSocket
+
+logger = logging.getLogger('uvicorn')
 
 
 class EnhancedWebscoket(WebSocket):
@@ -18,7 +21,7 @@ class EnhancedWebscoket(WebSocket):
                 self._uid = session_uid
             else:
                 # Attempt to generate new uuid
-                print('generating new uid')
+                logger.info('Generating new uid')
                 uid = str(uuid4())
                 self.session.update({'uid': uid})
                 self._uid = uid

@@ -19,6 +19,7 @@ class ResponseEvent(Enum):
     GAME_FINISHED = 'game_finished'
 
     GAME_UPDATE = 'game_update'
+    GAME_LOG = 'game_log'
 
 
 def build_response(event_type: str, data: dict = None, message: str = None,
@@ -37,6 +38,7 @@ def build_response(event_type: str, data: dict = None, message: str = None,
 
 
 build_chat_message = partial(build_response, event_type=ResponseEvent.CHAT_MESSAGE)
+build_game_log = partial(build_response, event_type=ResponseEvent.GAME_LOG)
 
 RESPONSE_CONNECTED = build_response(
     event_type=ResponseEvent.CONNECTION_OPEN,

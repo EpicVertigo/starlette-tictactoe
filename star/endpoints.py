@@ -2,7 +2,7 @@ from starlette import status
 from starlette.endpoints import WebSocketEndpoint
 
 from star.responses import (RESPONSE_CLOSE, RESPONSE_CONNECTED, ResponseEvent,
-                            build_chat_message, build_response)
+                            build_chat_message, build_game_log, build_response)
 from star.rooms import WebsocketRoom, room_manager
 from star.websockets import EnhancedWebscoket
 
@@ -108,6 +108,7 @@ class MainServer(BaseGameWebSocketEndpoint):
                 event_type=ResponseEvent.CREATE_ROOM,
                 message=f'Room {new_room.name} created'
             ))
+            await websocket.send_json(self.room_manager.all_rooms)
 
     async def on_connect(self, websocket):
         await super().on_connect(websocket)
@@ -138,19 +139,18 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
             self.room.game.make_move(x, y, websocket)
             if self.room.game.winner:
                 await self.send_game_status()
-                await self.broadcast(build_response(
-                    event_type=ResponseEvent.GAME_FINISHED,
+                await self.broadcast(build_game_log(
                     message=f'Game is finished, the winner is {self.room.game.winner}'
                 ))
                 self.room.game = None
             else:
-                await self.broadcast_chat_message(
-                    f'{websocket.uid} player made a move {x} {y}'
-                )
+                await self.broadcast(build_game_log(
+                    message=f'{websocket.display_name} player made a move [{x}:{y}]'
+                ))
                 await self.send_game_status()
                 return
         except Exception as exc:
-            await websocket.send_json(build_chat_message(message=str(exc)))
+            await websocket.send_json(build_game_log(message=str(exc)))
             return
 
     async def broadcast(self, data):
@@ -206,11 +206,11 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
             await self.send_game_status()
 
     async def on_disconnect(self, websocket, close_code):
-        # Cancel current game
-        if self.room.game:
-            self.room.game = None
-        # Remove user from room
         if self.room:
+            # Cancel current game
+            if self.room.game:
+                self.room.game = None
+            # Remove user from room
             if websocket in self.room:
                 self.room.remove_client(websocket)
             # If some people left in the room - announce it

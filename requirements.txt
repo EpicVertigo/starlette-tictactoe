@@ -1,6 +1,7 @@
+aiohttp
+aiofiles
 starlette
 uvicorn
 itsdangerous
 numpy
-aiofiles
 jinja2

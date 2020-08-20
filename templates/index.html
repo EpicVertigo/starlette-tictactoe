@@ -10,9 +10,17 @@
     />
   </head>
   <body>
-    <section class="section">
-      <div class="container">
-        <div id="app">
+    <style>
+      .superdisabled {
+        pointer-events: none;
+        opacity: 0.5;
+      }
+      .not-resizable {
+        resize: none;
+        cursor: default !important;
+      }
+    </style>
+        <div id="app" class="container">
           <section class="hero">
             <div class="hero-body">
               <div class="container">
@@ -20,11 +28,10 @@
                   WebSocket Chat Debug Page (very secret)
                 </h1>
                 <h2 v-if="roomName" class="subtitle">
-                  Room: {{ roomName }}
+                  Room: <% roomName %>
                 </h2>
               </div>
             </div>
-          </section>
 
           <div class="columns">
             <div class="column">
@@ -33,18 +40,19 @@
                   Chat
                 </p>
                 <textarea
-                  class="chat-box textarea"
+                  class="chat-box textarea not-resizable"
                   v-model="displayChat()"
-                  rows="15"
+                  rows="23"
                   disabled="true"
                 ></textarea>
-                <form @submit.prevent="sendMessage">
+                <form class="is-expanded" @submit.prevent="sendMessage">
                   <div class="field has-addons">
                     <input
                       class="input"
                       type="text"
                       name="name"
                       placeholder=""
+                      autocomplete="off"
                     />
                     <button class="button is-info">Send message</button>
                   </div>
@@ -53,94 +61,84 @@
             </div>
 
             <div class="column">
-              <nav class="panel">
+              <nav v-if="!roomName" class="panel">
                 <p class="panel-heading">
                   Active Game Rooms
                 </p>
-                <div
-                  class="columns panel-block"
-                  v-for="item in active_rooms"
-                  :key="item.index"
-                >
-                  <a class="column">
-                    {{item.name}}
-                  </a>
-                  <span class="column has-text-right"
-                    >{{item.current_clients}} / {{item.limit }}</span
+                <div v-for="item in active_rooms" :key="item.index">
+                  <div
+                    class="panel-block level"
+                    v-bind:class="{superdisabled: item.is_full}"
                   >
+                    <a
+                      @click.prevent="joinRoom(item.name)"
+                      class="panel-block column level-left"
+                    >
+                      <% item.name %>
+                    </a>
+                    <span
+                      class="ml-2 level-right"
+                      v-bind:class="{'has-background-danger': item.is_full}"
+                    >
+                      <% item.current_clients %> / <% item.limit %>
+                    </span>
+                  </div>
                 </div>
+                <form class="is-expanded" @submit.prevent="createRoom">
+                  <div class="field has-addons">
+                    <input
+                      class="input"
+                      type="text"
+                      name="name"
+                      placeholder=""
+                    />
+                    <button class="button is-info">Create room</button>
+                  </div>
               </nav>
-
-              <h3>Game rooms</h3>
-              <form v-if="!roomName" @submit.prevent="createRoom">
-                <input type="text" name="name" autocomplete="off" />
-                <button>Create room</button>
-              </form>
-
-              <form v-if="!roomName" @submit.prevent="joinRoom">
-                <input type="text" name="name" autocomplete="off" />
-                <button>Join room</button>
-              </form>
-            </div>
-          </div>
-
-          <div class="mt-5" v-if="roomName && gameBoard">
-            <h3>Current board</h3>
-            <div v-for="x in gameBoard.length" :key="gameBoard.index">
-              <span v-for="y in gameBoard.length" :key="gameBoard.index">
-                <button
-                  class="button is-small"
-                  style="width: 25px;"
-                  @click.prevent="makeMove(x - 1, y - 1)"
+              <nav v-else class="panel">
+                <p class="panel-heading">
+                  Current Game
+                </p>
+                <div
+                  class="mt-5 mb-5 has-text-centered"
+                  v-if="roomName && gameBoard"
                 >
-                  {{ gameBoard[x - 1][y - 1]}}
-                </button>
-              </span>
+                  <div v-for="x in gameBoard.length" :key="gameBoard.index">
+                    <span v-for="y in gameBoard.length" :key="gameBoard.index">
+                      <button
+                        class="button is-size-3"
+                        style="width: 70px; height: 70px;"
+                        @click.prevent="makeMove(x - 1, y - 1)"
+                      >
+                        <% gameBoard[x - 1][y - 1] %>
+                      </button>
+                    </span>
+                  </div>
+                </div>
+                <div v-else class="mt-5 mb-5 has-text-centered">
+                  Waiting for players
+                </div>
+                <br />
+                <p class="panel-heading">
+                  Combat log
+                </p>
+                <textarea
+                  class="game-log-box textarea not-resizable"
+                  v-model="displayGameLog()"
+                  rows="10"
+                  disabled="true"
+                ></textarea>
+              </nav>
             </div>
           </div>
-
           <br />
-          <h3>Chat</h3>
-          <table class="table">
-            <thead>
-              <tr>
-                <th><abbr title="Event type">Sender</abbr></th>
-                <th><abbr title="Message">Message</abbr></th>
-              </tr>
-            </thead>
-            <tbody v-for="item in chat_messages" :key="item.index">
-              <tr>
-                <td>{{ item.sender}}</td>
-                <td>
-                  {{ item.message }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <h3>Debug Messages</h3>
-          <table class="table">
-            <thead>
-              <tr>
-                <th><abbr title="Event type">Event</abbr></th>
-                <th><abbr title="Message">Message</abbr></th>
-              </tr>
-            </thead>
-            <tbody v-for="item in messages" :key="item.index">
-              <tr>
-                <td>{{ item.event_type}}</td>
-                <td>
-                  {{ item.data.message || item.data.rooms || item.data.count ||
-                  item.data.board }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
         </div>
-      </div>
     </section>
 
     <script src="https://unpkg.com/vue/dist/vue.js"></script>
     <script>
+      const wsHost = {{ host|tojson|safe }} || 'localhost:8000';
+      console.log(wsHost)
       function createMessage(event_type, payload) {
         return JSON.stringify({
           event_type: event_type,
@@ -151,7 +149,7 @@
         board.forEach((item, x) => {
           item.forEach((element, y) => {
             if (element === 0) {
-              board[x][y] = "-";
+              board[x][y] = "";
             } else if (element == 1) {
               board[x][y] = "O";
             } else if (element == 2) {
@@ -163,17 +161,21 @@
       }
       const app = new Vue({
         el: "#app",
-        data: {
-          connection: null,
-          messages: [],
-          roomName: "",
-          gameBoard: null,
-          chat_messages: [],
-          active_rooms: [],
+        delimiters: ["<%","%>"],
+        data: function () {
+          return {
+            connection: null,
+            messages: [],
+            roomName: "",
+            gameBoard: null,
+            chat_messages: [],
+            active_rooms: [],
+            game_log: [],
+          };
         },
         created: function () {
           console.log("Startuem WS");
-          this.connection = new WebSocket("ws://localhost:8000/ws");
+          this.connection = new WebSocket(`ws://${wsHost}/ws`);
           this.connection.onmessage = this.messageHandler;
           this.connection.onopen = function (event) {
             console.log("Successfully connected to Websocket");
@@ -190,18 +192,22 @@
                 break;
               case "get_all_rooms":
                 this.active_rooms = [
-                  ...this.active_rooms,
                   ...payload.data.rooms,
                 ];
+                break;
               case "chat_message":
                 this.chat_messages.push(payload.data);
+                break;
+              case "game_log":
+                this.game_log.push(payload.data);
+                break;
               default:
                 break;
             }
           },
           sendMessage: function (event) {
             let _input = event.target.elements.name.value;
-            if (_input) {
+            if (_input || _input !== '') {
               message = createMessage("chat_message", {
                 message: event.target.elements.name.value,
               });
@@ -218,15 +224,12 @@
             this.connection.send(message);
             event.target.elements.name.value = "";
           },
-          joinRoom: function (event) {
+          joinRoom: function (name) {
             event.preventDefault();
             this.connection.close();
-            this.connection = new WebSocket(
-              `ws://localhost:8000/ws/${event.target.elements.name.value}`
-            );
+            this.connection = new WebSocket(`ws://${wsHost}/ws/${name}`);
             this.connection.onmessage = this.messageHandler;
-            this.roomName = event.target.elements.name.value;
-            event.target.elements.name.value = "";
+            this.roomName = name;
           },
           makeMove: function (x, y) {
             event.preventDefault();
@@ -238,16 +241,19 @@
               .map((el) => `[${el.timestamp}] ${el.sender}: ${el.message}`)
               .join("\n");
           },
-          scrollToElement() {
-            const el = this.$el.getElementsByClassName("scroll-to-me")[0];
-            if (el) {
-              el.scrollIntoView();
-            }
+          displayGameLog: function () {
+            return this.game_log.map((el) => `[${el.timestamp}] ${el.message}` ).join("\n");
           },
         },
         updated: function () {
           var chatBox = this.$el.getElementsByClassName("chat-box")[0];
-          chatBox.scrollTop = chatBox.scrollHeight;
+          var gameLogBox = this.$el.getElementsByClassName("game-log-box")[0];
+          if (chatBox){
+            chatBox.scrollTop = chatBox.scrollHeight;
+          }
+          if (gameLogBox){
+            gameLogBox.scrollTop = gameLogBox.scrollHeight;
+          }
         },
       });
     </script>

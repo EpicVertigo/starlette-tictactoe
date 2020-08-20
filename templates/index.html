@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat Debug Page</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.9.0/css/bulma.min.css"
+    />
+  </head>
+  <body>
+    <section class="section">
+      <div class="container">
+        <div id="app">
+          <h1>WebSocket Chat Debug Page (very secret)</h1>
+          <h2 v-if="roomName">Send message to "{{ roomName }}"</h2>
+          <h2 v-else>Send global message</h2>
+
+          <form @submit.prevent="sendMessage">
+            <input type="text" name="name" autocomplete="off" />
+            <button>Send</button>
+          </form>
+
+          <form v-if="!roomName" @submit.prevent="createRoom">
+            <input type="text" name="name" autocomplete="off" />
+            <button>Create room</button>
+          </form>
+
+          <form v-if="!roomName" @submit.prevent="joinRoom">
+            <input type="text" name="name" autocomplete="off" />
+            <button>Join room</button>
+          </form>
+
+          <div class="mt-5" v-if="roomName && board">
+            <h3>Current board</h3>
+            <div v-for="x in board.length" :key="board.index">
+              <span v-for="y in board.length" :key="board.index">
+                <button
+                  class="button is-small"
+                  style="width: 25px;"
+                  @click.prevent="makeMove(x - 1, y - 1)"
+                >
+                  {{ board[x - 1][y - 1]}}
+                </button>
+              </span>
+            </div>
+          </div>
+
+          <br />
+          <h3>Debug Messages</h3>
+          <table class="table">
+            <thead>
+              <tr>
+                <th><abbr title="Event type">Event</abbr></th>
+                <th><abbr title="Message">Message</abbr></th>
+              </tr>
+            </thead>
+            <tbody v-for="item in messages" :key="item.index">
+              <tr>
+                <td>{{ item.event_type}}</td>
+                <td>
+                  {{ item.data.message || item.data.rooms || item.data.count ||
+                  item.data.board }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <script src="https://unpkg.com/vue/dist/vue.js"></script>
+    <script>
+      function createMessage(event_type, payload) {
+        return JSON.stringify({
+          event_type: event_type,
+          data: payload,
+        });
+      }
+      function formatBoard(board) {
+        const formattedBoard = [...board];
+        formattedBoard.forEach((item, x) => {
+          item.forEach((element, y) => {
+            if (element === 0) {
+              board[x][y] = "-";
+            } else if (element == 1) {
+              board[x][y] = "O";
+            } else if (element == 2) {
+              board[x][y] = "X";
+            }
+          });
+        });
+        return formattedBoard;
+      }
+      var app = new Vue({
+        el: "#app",
+        data: {
+          connection: null,
+          messages: [],
+          roomName: "",
+          gameBoard: null,
+        },
+        created: function () {
+          console.log("Startuem WS");
+          this.connection = new WebSocket("ws://localhost:8000/ws");
+          this.connection.onmessage = (event) => {
+            const payload = JSON.parse(event.data);
+            this.messages.push(payload);
+            console.log(payload.event_type);
+            if (payload.event_type === "game_update") {
+              this.gameBoard = payload.data.board;
+            }
+          };
+          this.connection.onopen = function (event) {
+            console.log("Successfully connected to Websocket");
+          };
+        },
+        methods: {
+          sendMessage: function (event) {
+            event.preventDefault();
+            message = createMessage("chat_message", {
+              message: event.target.elements.name.value,
+            });
+            this.connection.send(message);
+            event.target.elements.name.value = "";
+          },
+          createRoom: function (event) {
+            event.preventDefault();
+            message = createMessage("create_room", {
+              name: event.target.elements.name.value,
+            });
+            this.connection.send(message);
+            event.target.elements.name.value = "";
+          },
+          joinRoom: function (event) {
+            event.preventDefault();
+            this.connection.close();
+            this.connection = new WebSocket(
+              `ws://localhost:8000/ws/${event.target.elements.name.value}`
+            );
+            this.connection.onmessage = (event) => {
+              const payload = JSON.parse(event.data);
+              this.messages.push(payload);
+              console.log(payload.event_type);
+              if (payload.event_type === "game_update") {
+                var new_board = [...payload.data.board];
+                console.log(payload.data.board, new_board);
+                this.gameBoard = formatBoard(new_board);
+              }
+            };
+            this.roomName = event.target.elements.name.value;
+            event.target.elements.name.value = "";
+          },
+          makeMove: function (x, y) {
+            event.preventDefault();
+            message = createMessage("make_move", { x, y });
+            this.connection.send(message);
+          },
+        },
+      });
+    </script>
+  </body>
+</html>

@@ -62,6 +62,9 @@ class BaseGameWebSocketEndpoint(WebSocketEndpoint):
         for client in self.clients:
             await client.send_json(data)
 
+    async def broadcast_chat_message(self, message):
+        await self.broadcast(build_chat_message(message=message))
+
     async def on_connect(self, websocket: EnhancedWebscoket):
         await websocket.accept()
         if not websocket.uid:
@@ -117,6 +120,7 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
     def dispatch_methods(self):
         return {
             'get_clients_count': self.get_room_clients_count,
+            'send_game_status': self.send_game_status,
             'chat_message': self.on_chat_message,
             'make_move': self.make_move
         }
@@ -131,15 +135,17 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
             x, y = int(data.get('x')), int(data.get('y'))
             self.room.game.make_move(x, y, websocket)
             if self.room.game.winner:
+                await self.send_game_status()
                 await self.broadcast(build_response(
                     event_type=ResponseEvent.GAME_FINISHED,
                     message=f'Game is finished, the winner is {self.room.game.winner}'
                 ))
                 self.room.game = None
             else:
-                await self.broadcast(build_chat_message(
-                    message=f'{self.room.game.board} hehe'
-                ))
+                await self.broadcast_chat_message(
+                    f'{websocket.uid} player made a move {x} {y}'
+                )
+                await self.send_game_status()
                 return
         except Exception as exc:
             await websocket.send_json(build_chat_message(message=str(exc)))
@@ -153,6 +159,15 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
         await websocket.send_json(build_response(
             event_type=ResponseEvent.GET_ROOM_CLIENTS_COUNT,
             data={'count': str(self.room.client_count)}
+        ))
+
+    async def send_game_status(self):
+        await self.broadcast(build_response(
+            event_type='game_update',
+            data={
+                "winner": self.room.game.winner,
+                "board": self.room.game.board.tolist()
+            }
         ))
 
     async def on_connect(self, websocket):
@@ -180,15 +195,14 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
             old_connection = self._get_old_connection(websocket)
             await old_connection.close()
             self.room.clients.add(websocket)
-        await websocket.send_json(response)
+        await self.broadcast(response)
         await self.get_room_clients_count(websocket, None)
 
         # Start game here?
         if self.room.is_full and not self.room.game:
             self.room.start_new_game()
-            await self.broadcast(build_chat_message(
-                message=f'Game is starting. {self.room.game.board}'
-            ))
+            await self.broadcast_chat_message('Game is starting')
+            await self.send_game_status()
 
     async def on_disconnect(self, websocket, close_code):
         # Cancel current game
@@ -197,3 +211,6 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
         # Remove user from room
         if self.room and websocket in self.room:
             self.room.remove_client(websocket)
+        # If some people left in the room - announce it
+        if self.room.clients:
+            await self.broadcast_chat_message(f'{websocket.uid} disconnected')

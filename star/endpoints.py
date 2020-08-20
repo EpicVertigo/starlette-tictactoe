@@ -111,6 +111,7 @@ class MainServer(BaseGameWebSocketEndpoint):
     async def on_connect(self, websocket):
         await super().on_connect(websocket)
         await websocket.send_json(self.room_manager.all_rooms)
+        await self.broadcast_chat_message(f'{websocket.uid} connected')
 
 
 class GameRoomEndpoint(BaseGameWebSocketEndpoint):
@@ -209,8 +210,9 @@ class GameRoomEndpoint(BaseGameWebSocketEndpoint):
         if self.room.game:
             self.room.game = None
         # Remove user from room
-        if self.room and websocket in self.room:
-            self.room.remove_client(websocket)
-        # If some people left in the room - announce it
-        if self.room.clients:
-            await self.broadcast_chat_message(f'{websocket.uid} disconnected')
+        if self.room:
+            if websocket in self.room:
+                self.room.remove_client(websocket)
+            # If some people left in the room - announce it
+            if self.room.clients:
+                await self.broadcast_chat_message(f'{websocket.uid} disconnected')

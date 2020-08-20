@@ -32,16 +32,16 @@
             <button>Join room</button>
           </form>
 
-          <div class="mt-5" v-if="roomName && board">
+          <div class="mt-5" v-if="roomName && gameBoard">
             <h3>Current board</h3>
-            <div v-for="x in board.length" :key="board.index">
-              <span v-for="y in board.length" :key="board.index">
+            <div v-for="x in gameBoard.length" :key="gameBoard.index">
+              <span v-for="y in gameBoard.length" :key="gameBoard.index">
                 <button
                   class="button is-small"
                   style="width: 25px;"
                   @click.prevent="makeMove(x - 1, y - 1)"
                 >
-                  {{ board[x - 1][y - 1]}}
+                  {{ gameBoard[x - 1][y - 1]}}
                 </button>
               </span>
             </div>

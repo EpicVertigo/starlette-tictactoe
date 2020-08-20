@@ -8,6 +8,7 @@ class EnhancedWebscoket(WebSocket):
     Starlette's WebSocket object with additional methods and unique ID
     """
     _uid = None
+    _display_name = None
 
     @property
     def uid(self):
@@ -23,6 +24,12 @@ class EnhancedWebscoket(WebSocket):
                 self._uid = uid
         return self._uid
 
+    @property
+    def display_name(self):
+        if not self._display_name:
+            self._display_name = self.session.get('display_name', None)
+        return self._display_name
+
     def __hash__(self):
         return hash(self.uid)
 
@@ -33,4 +40,4 @@ class EnhancedWebscoket(WebSocket):
         return hash(self) != hash(other)
 
     def __str__(self):
-        return f'<WebSocketClient {self.uid}>'
+        return f'<WebSocketClient {self.display_name or self.uid}>'

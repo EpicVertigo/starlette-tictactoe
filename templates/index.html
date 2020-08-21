@@ -25,7 +25,7 @@
             <div class="hero-body">
               <div class="container">
                 <h1 class="title">
-                  WebSocket Chat Debug Page (very secret)
+                  WebSocket TicTacToe Debug Page
                 </h1>
                 <h2 v-if="roomName" class="subtitle">
                   Room: <% roomName %>
@@ -191,9 +191,7 @@
                 this.gameBoard = formatBoard(payload.data.board);
                 break;
               case "get_all_rooms":
-                this.active_rooms = [
-                  ...payload.data.rooms,
-                ];
+                this.active_rooms = payload.data.rooms;
                 break;
               case "chat_message":
                 this.chat_messages.push(payload.data);
@@ -225,14 +223,12 @@
             event.target.elements.name.value = "";
           },
           joinRoom: function (name) {
-            event.preventDefault();
             this.connection.close();
             this.connection = new WebSocket(`ws://${wsHost}/ws/${name}`);
             this.connection.onmessage = this.messageHandler;
             this.roomName = name;
           },
           makeMove: function (x, y) {
-            event.preventDefault();
             message = createMessage("make_move", { x, y });
             this.connection.send(message);
           },

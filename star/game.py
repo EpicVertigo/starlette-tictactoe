@@ -30,6 +30,11 @@ class Game:
     def conditions(self) -> List[Callable]:
         return [self.row_win, self.col_win, self.diag_win]
 
+    @property
+    def board_rows(self) -> List:
+        return [[self.board[x, y] for y in range(len(self.board))]
+                for x in range(len(self.board))]
+
     def row_win(self, player: int) -> bool:
         for i in range(len(self.board)):
             row = []
@@ -39,6 +44,10 @@ class Game:
                 return True
             continue
         return False
+
+    def _row_win(self, player: int) -> bool:
+        """Alternative row win check"""
+        return any([self.is_sequence_filled(row, player) for row in self.board_rows])
 
     def col_win(self, player: int) -> bool:
         for i in range(len(self.board)):

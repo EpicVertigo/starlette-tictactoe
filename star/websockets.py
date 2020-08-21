@@ -21,7 +21,7 @@ class EnhancedWebscoket(WebSocket):
                 self._uid = session_uid
             else:
                 # Attempt to generate new uuid
-                logger.info('Generating new uid')
+                logger.info('Generating new uid from Websocket connection')
                 uid = str(uuid4())
                 self.session.update({'uid': uid})
                 self._uid = uid

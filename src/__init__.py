@@ -1,7 +1,7 @@
 from starlette.applications import Starlette
 
-from star import settings
-from star.routes import routes
+from src import settings
+from src.routes import routes
 
 
 def create_app() -> Starlette:

@@ -1,6 +1,6 @@
-from star.game import Game
-from star.responses import ResponseEvent, build_response
-from star.websockets import EnhancedWebscoket
+from src.game import Game
+from src.responses import ResponseEvent, build_response
+from src.websockets import EnhancedWebscoket
 
 
 class WebsocketRoom:

@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from star.game import Game, IncorrectMoveException
+from src.game import Game, IncorrectMoveException
 
 
 class FakePlayer:

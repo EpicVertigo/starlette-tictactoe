@@ -4,7 +4,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.templating import Jinja2Templates
 
-from star.middleware import SessionUIDMiddleware
+from src.middleware import SessionUIDMiddleware
 
 config = Config('.env')
 

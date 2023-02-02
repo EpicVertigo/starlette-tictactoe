@@ -1,6 +1,6 @@
 from starlette.endpoints import HTTPEndpoint
 
-from star import settings
+from src import settings
 
 
 class Homepage(HTTPEndpoint):

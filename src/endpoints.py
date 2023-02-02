@@ -1,18 +1,20 @@
 from starlette import status
 from starlette.endpoints import WebSocketEndpoint
 
-from star.responses import (RESPONSE_CLOSE, RESPONSE_CONNECTED, ResponseEvent,
-                            build_chat_message, build_game_log, build_response)
-from star.rooms import WebsocketRoom, room_manager
-from star.websockets import EnhancedWebscoket
+from src.responses import (
+    RESPONSE_CLOSE, RESPONSE_CONNECTED, ResponseEvent, build_chat_message,
+    build_game_log, build_response
+)
+from src.rooms import WebsocketRoom, room_manager
+from src.websockets import EnhancedWebscoket
 
 
 class BaseGameWebSocketEndpoint(WebSocketEndpoint):
     """
     Default Starlette WebSocketEndpoint with additional methods. 
-    By default uses EnchancedWebsocket class for dispatching all incoming
+    By default uses EnhancedWebsocket class for dispatching all incoming
     and outcoming requests. Adds client management functionality on connect,
-    recieve and disconnect events. 
+    receive and disconnect events. 
 
     This class uses dispatch_methods class
     attribute to hold reference to event types and related resolver functions

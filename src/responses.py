@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from functools import partial
 
-from star.websockets import EnhancedWebscoket
+from src.websockets import EnhancedWebscoket
 
 
 class ResponseEvent(Enum):
@@ -15,7 +15,7 @@ class ResponseEvent(Enum):
     JOIN_ROOM = 'join_room'
     LEAVE_ROOM = 'leave_room'
     CHAT_MESSAGE = 'chat_message'
-    GET_ROOM_CLIENTS_COUNT = 'get_cleints_count'
+    GET_ROOM_CLIENTS_COUNT = 'get_clients_count'
     GAME_FINISHED = 'game_finished'
 
     GAME_UPDATE = 'game_update'

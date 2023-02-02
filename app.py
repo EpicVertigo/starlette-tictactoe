@@ -1,6 +1,6 @@
 import uvicorn
 
-from star import create_app, settings
+from src import create_app, settings
 
 app = create_app()
 
